@@ -1,0 +1,61 @@
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it } from "vitest";
+
+import HomePage from "@/app/page";
+
+describe("HomePage", () => {
+  it("默认显示折叠日期栏和单位摘要卡片", async () => {
+    render(
+      await HomePage({
+        searchParams: Promise.resolve({}),
+      }),
+    );
+
+    expect(screen.queryByRole("heading", { name: "2026年4月10日值班总览" })).not.toBeInTheDocument();
+    expect(screen.getByText("2026年4月10日")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "展开日期选择" })).toBeInTheDocument();
+    expect(screen.queryByText("4月日历面板")).not.toBeInTheDocument();
+    expect(screen.queryByText("DUTY BOARD")).not.toBeInTheDocument();
+    expect(screen.queryByText("点击单位名称后进入详情页查看完整联系人。")).not.toBeInTheDocument();
+
+    expect(screen.getByRole("link", { name: "路桥运营事业部" })).toBeInTheDocument();
+    expect(screen.getAllByText("值班领导")).toHaveLength(3);
+    expect(screen.getAllByText("值班中层")).toHaveLength(3);
+    expect(screen.getAllByText("值班人员")).toHaveLength(3);
+    expect(screen.getByText("杨洋 电话待补充")).toBeInTheDocument();
+    expect(screen.queryByText("当日三项值班摘要")).not.toBeInTheDocument();
+    expect(screen.getByText("范文东 18660196617")).toBeInTheDocument();
+  });
+
+  it("当 mode=database 时展示数据库模式提示", async () => {
+    render(
+      await HomePage({
+        searchParams: Promise.resolve({
+          mode: "database",
+        }),
+      }),
+    );
+
+    expect(screen.getByText("当前模式：连接远程 MySQL")).toBeInTheDocument();
+  });
+
+  it("展开月历后选择日期会自动收起并刷新摘要数据", async () => {
+    const user = userEvent.setup();
+
+    render(
+      await HomePage({
+        searchParams: Promise.resolve({}),
+      }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "展开日期选择" }));
+
+    expect(screen.getByText("4月日历面板")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "选择 2026年4月11日" }));
+
+    expect(screen.queryByText("4月日历面板")).not.toBeInTheDocument();
+    expect(screen.getByText("2026年4月11日")).toBeInTheDocument();
+    expect(screen.getByText("陈龙 电话待补充")).toBeInTheDocument();
+  });
+});

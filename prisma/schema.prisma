@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Unit {
+  id         Int            @id @default(autoincrement())
+  name       String
+  code       String?        @unique
+  sortOrder  Int            @default(0) @map("sort_order")
+  isActive   Boolean        @default(true) @map("is_active")
+  overviews  DutyOverview[]
+  contacts   DutyContact[]
+  createdAt  DateTime       @default(now()) @map("created_at")
+  updatedAt  DateTime       @updatedAt @map("updated_at")
+
+  @@map("units")
+}
+
+model DutyOverview {
+  id                 Int          @id @default(autoincrement())
+  dutyDate           DateTime     @map("duty_date")
+  unitId             Int          @map("unit_id")
+  leaderName         String?      @map("leader_name")
+  leaderPhone        String?      @map("leader_phone")
+  middleManagerName  String?      @map("middle_manager_name")
+  middleManagerPhone String?      @map("middle_manager_phone")
+  staffName          String?      @map("staff_name")
+  staffPhone         String?      @map("staff_phone")
+  sourceBatchId      Int?         @map("source_batch_id")
+  unit               Unit         @relation(fields: [unitId], references: [id])
+  sourceBatch        ImportBatch? @relation(fields: [sourceBatchId], references: [id])
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+
+  @@index([dutyDate, unitId])
+  @@map("duty_overviews")
+}
+
+model DutyContact {
+  id            Int          @id @default(autoincrement())
+  dutyDate      DateTime     @map("duty_date")
+  unitId        Int          @map("unit_id")
+  departmentName String      @map("department_name")
+  personName    String       @map("person_name")
+  phone         String?
+  sortOrder     Int          @default(0) @map("sort_order")
+  sourceBatchId Int?         @map("source_batch_id")
+  unit          Unit         @relation(fields: [unitId], references: [id])
+  sourceBatch   ImportBatch? @relation(fields: [sourceBatchId], references: [id])
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  @@index([dutyDate, unitId, departmentName])
+  @@map("duty_contacts")
+}
+
+model ImportBatch {
+  id           Int            @id @default(autoincrement())
+  fileName     String         @map("file_name")
+  storagePath  String?        @map("storage_path")
+  importStatus String         @default("pending") @map("import_status")
+  errorMessage String?        @map("error_message")
+  importedAt   DateTime?      @map("imported_at")
+  overviews    DutyOverview[]
+  contacts     DutyContact[]
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  @@map("import_batches")
+}
