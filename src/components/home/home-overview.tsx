@@ -61,24 +61,30 @@ function toChineseDateLabel(isoDate: string) {
 }
 
 function UnitOverviewCard({ item, date }: { item: DutyOverviewItem; date: string }) {
+  const detailHref = {
+    pathname: `/units/${item.unitSlug}`,
+    query: {
+      date,
+      unitName: item.unitName,
+    },
+  } as const;
+
   return (
     <article className="overflow-hidden rounded-[28px] border border-[var(--border)] bg-[var(--card)] shadow-[0_20px_50px_rgba(25,35,45,0.08)]">
       <div className="flex items-center justify-between border-b border-[var(--line-soft)] bg-[linear-gradient(180deg,#fffdfa_0%,#f8f1e8_100%)] px-5 py-4">
         <Link
-          href={{
-            pathname: `/units/${item.unitSlug}`,
-            query: {
-              date,
-              unitName: item.unitName,
-            },
-          }}
+          href={detailHref}
           className="text-lg font-semibold tracking-[0.02em] text-[var(--foreground)] underline-offset-4 transition hover:text-[var(--accent)] hover:underline"
         >
           {item.unitName}
         </Link>
-        <span className="rounded-full bg-white px-3 py-1 text-xs text-[var(--muted)] shadow-[inset_0_0_0_1px_var(--line-soft)]">
-          点单位看详情
-        </span>
+        <Link
+          href={detailHref}
+          aria-label={`查看${item.unitName}详情`}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full text-lg font-semibold text-[var(--muted)] transition hover:bg-white/70 hover:text-[var(--foreground)]"
+        >
+          <span aria-hidden>›</span>
+        </Link>
       </div>
 
       <div className="px-5 py-1">

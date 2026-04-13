@@ -20,6 +20,7 @@ describe("HomePage", () => {
     expect(screen.queryByText("点击单位名称后进入详情页查看完整联系人。")).not.toBeInTheDocument();
 
     expect(screen.getByRole("link", { name: "路桥运营事业部" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "查看路桥运营事业部详情" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "返回当天" })).toBeInTheDocument();
     expect(screen.getAllByText("值班领导")).toHaveLength(3);
     expect(screen.getAllByText("值班中层")).toHaveLength(3);
@@ -27,6 +28,7 @@ describe("HomePage", () => {
     expect(screen.getByText("杨洋 电话待补充")).toBeInTheDocument();
     expect(screen.queryByText("当日三项值班摘要")).not.toBeInTheDocument();
     expect(screen.getByText("范文东 18660196617")).toBeInTheDocument();
+    expect(screen.queryByText("点单位看详情")).not.toBeInTheDocument();
   });
 
   it("当 mode=database 时不再展示当前模式文案", async () => {
