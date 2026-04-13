@@ -61,6 +61,24 @@ function toChineseDateLabel(isoDate: string) {
   return `${year}年${Number(month)}月${Number(day)}日`;
 }
 
+function getChinaTodayIsoDate() {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = formatter.formatToParts(now);
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+  if (!year || !month || !day) {
+    return "1970-01-01";
+  }
+  return `${year}-${month}-${day}`;
+}
+
 function UnitOverviewCard({ item, date }: { item: DutyOverviewItem; date: string }) {
   const detailHref = {
     pathname: `/units/${item.unitSlug}`,
@@ -103,7 +121,10 @@ export function HomeOverview({ days, initialDay }: HomeOverviewProps) {
   const [viewYear, setViewYear] = useState(new Date(`${initialDay.date}T00:00:00`).getFullYear());
   const [viewMonth, setViewMonth] = useState(new Date(`${initialDay.date}T00:00:00`).getMonth());
 
-  const currentDay = days.find((item) => item.date === selectedDate) ?? initialDay;
+  const currentDay = days.find((item) => item.date === selectedDate);
+  const activeDate = currentDay?.date ?? selectedDate;
+  const activeDateLabel = currentDay?.label ?? toChineseDateLabel(selectedDate);
+  const activeOverviewItems = currentDay?.overviewItems ?? [];
   const daysWithData = new Set(days.map((item) => item.date));
   const monthGrid = buildMonthGrid(viewYear, viewMonth, selectedDate, daysWithData);
   const yearSet = new Set(days.map((item) => Number(item.date.slice(0, 4))));
@@ -121,7 +142,7 @@ export function HomeOverview({ days, initialDay }: HomeOverviewProps) {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-xs tracking-[0.18em] text-[var(--muted)]">当前日期</p>
-                  <p className="mt-1 text-xl font-semibold text-[var(--foreground)]">{currentDay.label}</p>
+                  <p className="mt-1 text-xl font-semibold text-[var(--foreground)]">{activeDateLabel}</p>
                 </div>
 
                 <div className="flex flex-col gap-2">
@@ -138,10 +159,12 @@ export function HomeOverview({ days, initialDay }: HomeOverviewProps) {
                     type="button"
                     aria-label="返回当天"
                     onClick={() => {
-                      setSelectedDate(initialDay.date);
-                      const baseDate = new Date(`${initialDay.date}T00:00:00`);
+                      const todayDate = getChinaTodayIsoDate();
+                      setSelectedDate(todayDate);
+                      const baseDate = new Date(`${todayDate}T00:00:00`);
                       setViewYear(baseDate.getFullYear());
                       setViewMonth(baseDate.getMonth());
+                      setIsCalendarOpen(false);
                     }}
                     className="rounded-full border border-[var(--line-soft)] bg-white px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-[0_8px_24px_rgba(18,31,41,0.08)] transition hover:-translate-y-0.5"
                   >
@@ -242,8 +265,8 @@ export function HomeOverview({ days, initialDay }: HomeOverviewProps) {
         </section>
 
         <section className="grid gap-4">
-          {currentDay.overviewItems.map((item) => (
-            <UnitOverviewCard key={item.id} item={item} date={currentDay.date} />
+          {activeOverviewItems.map((item) => (
+            <UnitOverviewCard key={item.id} item={item} date={activeDate} />
           ))}
         </section>
       </div>

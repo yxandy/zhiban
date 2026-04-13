@@ -42,30 +42,40 @@ export async function getUnitDetailData(input: {
   forceMode?: string;
 }): Promise<{
   detail: DutyUnitDetailRecord | null;
+  availableDates: string[];
   sourceMode: "mock" | "database";
 }> {
   const preferDatabase = input.forceMode === "database" || process.env.USE_MOCK_DATA === "false";
   if (preferDatabase) {
-    const detail = await readUnitDetailFromDatabase(input.unitSlug, input.date);
+    const fromDb = await readUnitDetailFromDatabase(input.unitSlug, input.date);
+    const detail = fromDb?.detail ?? null;
     if (detail) {
       return {
         detail,
+        availableDates: fromDb?.availableDates ?? [],
         sourceMode: "database",
       };
     }
   }
 
+  const mockDetail = getDutyUnitDetailRecord(input.unitSlug, input.date);
+  const mockDates = dutyDayRecords
+    .filter((item) => item.overviewItems.some((overview) => overview.unitSlug === input.unitSlug))
+    .map((item) => item.date);
+
   return {
-    detail: getDutyUnitDetailRecord(input.unitSlug, input.date),
+    detail: mockDetail,
+    availableDates: mockDates,
     sourceMode: "mock",
   };
 }
 
 async function readHomeOverviewFromDatabase(date?: string): Promise<HomeOverviewData | null> {
   const requestedDate = normalizeDate(date);
-  let activeDate = requestedDate;
+  let activeDate = requestedDate ?? getChinaTodayIsoDate();
+  let rows = await listDutyOverviewRowsByMonth(activeDate);
 
-  if (!activeDate) {
+  if (!requestedDate && rows.length === 0) {
     const latest = await prisma.dutyOverview.findFirst({
       orderBy: {
         dutyDate: "desc",
@@ -78,27 +88,8 @@ async function readHomeOverviewFromDatabase(date?: string): Promise<HomeOverview
       return null;
     }
     activeDate = formatDateOnly(latest.dutyDate);
+    rows = await listDutyOverviewRowsByMonth(activeDate);
   }
-
-  const monthStart = new Date(`${activeDate}T00:00:00+08:00`);
-  const monthEnd = new Date(monthStart);
-  monthEnd.setMonth(monthEnd.getMonth() + 1, 1);
-  monthEnd.setHours(0, 0, 0, 0);
-  monthStart.setDate(1);
-  monthStart.setHours(0, 0, 0, 0);
-
-  const rows = await prisma.dutyOverview.findMany({
-    where: {
-      dutyDate: {
-        gte: monthStart,
-        lt: monthEnd,
-      },
-    },
-    include: {
-      unit: true,
-    },
-    orderBy: [{ dutyDate: "asc" }, { unit: { sortOrder: "asc" } }, { unitId: "asc" }],
-  });
 
   if (rows.length === 0) {
     return null;
@@ -131,7 +122,14 @@ async function readHomeOverviewFromDatabase(date?: string): Promise<HomeOverview
   }));
   days.sort((a, b) => (a.date < b.date ? -1 : 1));
 
-  const initialDay = days.find((item) => item.date === activeDate) ?? days[0];
+  const initialDay =
+    days.find((item) => item.date === activeDate) ??
+    ({
+      date: activeDate,
+      label: toChineseDate(activeDate),
+      monthLabel: toMonthLabel(activeDate),
+      overviewItems: [],
+    } satisfies DutyDayRecord);
   if (!initialDay) {
     return null;
   }
@@ -143,7 +141,10 @@ async function readHomeOverviewFromDatabase(date?: string): Promise<HomeOverview
   };
 }
 
-async function readUnitDetailFromDatabase(unitSlug: string, date?: string): Promise<DutyUnitDetailRecord | null> {
+async function readUnitDetailFromDatabase(
+  unitSlug: string,
+  date?: string,
+): Promise<{ detail: DutyUnitDetailRecord | null; availableDates: string[] } | null> {
   const unit = await resolveUnitBySlug(unitSlug);
   if (!unit) {
     return null;
@@ -165,8 +166,25 @@ async function readUnitDetailFromDatabase(unitSlug: string, date?: string): Prom
     targetDate = latest ? formatDateOnly(latest.dutyDate) : null;
   }
 
+  const availableRows = await prisma.dutyContact.findMany({
+    where: {
+      unitId: unit.id,
+    },
+    select: {
+      dutyDate: true,
+    },
+    distinct: ["dutyDate"],
+    orderBy: {
+      dutyDate: "asc",
+    },
+  });
+  const availableDates = availableRows.map((row) => formatDateOnly(row.dutyDate));
+
   if (!targetDate) {
-    return null;
+    return {
+      detail: null,
+      availableDates,
+    };
   }
 
   const dayStart = new Date(`${targetDate}T00:00:00+08:00`);
@@ -185,7 +203,10 @@ async function readUnitDetailFromDatabase(unitSlug: string, date?: string): Prom
   });
 
   if (contacts.length === 0) {
-    return null;
+    return {
+      detail: null,
+      availableDates,
+    };
   }
 
   const groupMap = new Map<
@@ -215,10 +236,13 @@ async function readUnitDetailFromDatabase(unitSlug: string, date?: string): Prom
   }
 
   return {
-    date: targetDate,
-    unitSlug: unit.code ?? `unit-${unit.id}`,
-    unitName: unit.name,
-    groups: [...groupMap.values()],
+    detail: {
+      date: targetDate,
+      unitSlug: unit.code ?? `unit-${unit.id}`,
+      unitName: unit.name,
+      groups: [...groupMap.values()],
+    },
+    availableDates,
   };
 }
 
@@ -249,6 +273,46 @@ function formatDateOnly(date: Date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+async function listDutyOverviewRowsByMonth(activeDate: string) {
+  const monthStart = new Date(`${activeDate}T00:00:00+08:00`);
+  const monthEnd = new Date(monthStart);
+  monthEnd.setMonth(monthEnd.getMonth() + 1, 1);
+  monthEnd.setHours(0, 0, 0, 0);
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+
+  return prisma.dutyOverview.findMany({
+    where: {
+      dutyDate: {
+        gte: monthStart,
+        lt: monthEnd,
+      },
+    },
+    include: {
+      unit: true,
+    },
+    orderBy: [{ dutyDate: "asc" }, { unit: { sortOrder: "asc" } }, { unitId: "asc" }],
+  });
+}
+
+function getChinaTodayIsoDate() {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = formatter.formatToParts(now);
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+  if (!year || !month || !day) {
+    return "1970-01-01";
+  }
   return `${year}-${month}-${day}`;
 }
 

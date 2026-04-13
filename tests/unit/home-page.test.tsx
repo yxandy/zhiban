@@ -4,6 +4,23 @@ import { describe, expect, it } from "vitest";
 
 import HomePage from "@/app/page";
 
+function getChinaTodayLabel() {
+  const formatter = new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = formatter.formatToParts(new Date());
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+  if (!year || !month || !day) {
+    return "1970年1月1日";
+  }
+  return `${year}年${Number(month)}月${Number(day)}日`;
+}
+
 describe("HomePage", () => {
   it("默认显示折叠日期栏和单位摘要卡片", async () => {
     render(
@@ -66,6 +83,6 @@ describe("HomePage", () => {
     expect(screen.getByText("陈龙")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "返回当天" }));
-    expect(screen.getByText("2026年4月10日")).toBeInTheDocument();
+    expect(screen.getByText(getChinaTodayLabel())).toBeInTheDocument();
   });
 });
