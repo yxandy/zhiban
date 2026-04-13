@@ -6,7 +6,6 @@ import { useState } from "react";
 import type { DutyDayRecord, DutyOverviewItem } from "@/lib/mock/duty-home-data";
 
 type HomeOverviewProps = {
-  currentModeLabel: string;
   days: DutyDayRecord[];
   initialDay: DutyDayRecord;
 };
@@ -30,10 +29,7 @@ function SummaryLine({
   );
 }
 
-function buildMonthGrid(activeDate: string, datesWithData: Set<string>) {
-  const baseDate = new Date(`${activeDate}T00:00:00`);
-  const year = baseDate.getFullYear();
-  const month = baseDate.getMonth();
+function buildMonthGrid(year: number, month: number, selectedDate: string, datesWithData: Set<string>) {
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
   const leadingDays = (firstDay.getDay() + 6) % 7;
@@ -51,7 +47,7 @@ function buildMonthGrid(activeDate: string, datesWithData: Set<string>) {
       isoDate,
       dayLabel: String(cellDate.getDate()),
       isCurrentMonth,
-      isSelected: isoDate === activeDate,
+      isSelected: isoDate === selectedDate,
       hasData: datesWithData.has(isoDate),
     };
   });
@@ -88,13 +84,18 @@ function UnitOverviewCard({ item, date }: { item: DutyOverviewItem; date: string
   );
 }
 
-export function HomeOverview({ currentModeLabel, days, initialDay }: HomeOverviewProps) {
+export function HomeOverview({ days, initialDay }: HomeOverviewProps) {
   const [selectedDate, setSelectedDate] = useState(initialDay.date);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [viewYear, setViewYear] = useState(new Date(`${initialDay.date}T00:00:00`).getFullYear());
+  const [viewMonth, setViewMonth] = useState(new Date(`${initialDay.date}T00:00:00`).getMonth());
 
   const currentDay = days.find((item) => item.date === selectedDate) ?? initialDay;
   const daysWithData = new Set(days.map((item) => item.date));
-  const monthGrid = buildMonthGrid(currentDay.date, daysWithData);
+  const monthGrid = buildMonthGrid(viewYear, viewMonth, selectedDate, daysWithData);
+  const yearSet = new Set(days.map((item) => Number(item.date.slice(0, 4))));
+  yearSet.add(viewYear);
+  const yearOptions = [...yearSet].sort((a, b) => a - b);
 
   return (
     <main className="min-h-screen px-4 py-6 sm:px-6 lg:px-8">
@@ -108,18 +109,32 @@ export function HomeOverview({ currentModeLabel, days, initialDay }: HomeOvervie
                 <div>
                   <p className="text-xs tracking-[0.18em] text-[var(--muted)]">当前日期</p>
                   <p className="mt-1 text-xl font-semibold text-[var(--foreground)]">{currentDay.label}</p>
-                  <p className="mt-2 text-xs text-[var(--muted)]">{`当前模式：${currentModeLabel}`}</p>
                 </div>
 
-                <button
-                  type="button"
-                  aria-expanded={isCalendarOpen}
-                  aria-label={isCalendarOpen ? "收起日期选择" : "展开日期选择"}
-                  onClick={() => setIsCalendarOpen((value) => !value)}
-                  className="rounded-full border border-[var(--line-soft)] bg-white px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-[0_8px_24px_rgba(18,31,41,0.08)] transition hover:-translate-y-0.5"
-                >
-                  {isCalendarOpen ? "收起" : "切换日期"}
-                </button>
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    aria-expanded={isCalendarOpen}
+                    aria-label={isCalendarOpen ? "收起日期选择" : "展开日期选择"}
+                    onClick={() => setIsCalendarOpen((value) => !value)}
+                    className="rounded-full border border-[var(--line-soft)] bg-white px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-[0_8px_24px_rgba(18,31,41,0.08)] transition hover:-translate-y-0.5"
+                  >
+                    {isCalendarOpen ? "收起" : "切换日期"}
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="返回当天"
+                    onClick={() => {
+                      setSelectedDate(initialDay.date);
+                      const baseDate = new Date(`${initialDay.date}T00:00:00`);
+                      setViewYear(baseDate.getFullYear());
+                      setViewMonth(baseDate.getMonth());
+                    }}
+                    className="rounded-full border border-[var(--line-soft)] bg-white px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-[0_8px_24px_rgba(18,31,41,0.08)] transition hover:-translate-y-0.5"
+                  >
+                    返回当天
+                  </button>
+                </div>
               </div>
 
               {isCalendarOpen ? (
@@ -128,14 +143,46 @@ export function HomeOverview({ currentModeLabel, days, initialDay }: HomeOvervie
                     <p className="text-sm font-semibold text-[var(--foreground)]">4月日历面板</p>
                     <button
                       type="button"
-                      onClick={() => {
-                        setSelectedDate(initialDay.date);
-                        setIsCalendarOpen(false);
-                      }}
+                      onClick={() => setIsCalendarOpen(false)}
                       className="rounded-full bg-[var(--accent)] px-3 py-1.5 text-xs text-white"
                     >
-                      回到今天
+                      收起日历
                     </button>
+                  </div>
+                  <div className="mt-3 flex items-center gap-2">
+                    <label className="text-xs text-[var(--muted)]" htmlFor="year-select">
+                      年份
+                    </label>
+                    <select
+                      id="year-select"
+                      aria-label="切换年份"
+                      value={viewYear}
+                      onChange={(event) => setViewYear(Number(event.target.value))}
+                      className="rounded-lg border border-[var(--line-soft)] bg-white px-2 py-1 text-sm text-[var(--foreground)]"
+                    >
+                      {yearOptions.map((year) => (
+                        <option key={year} value={year}>
+                          {year}年
+                        </option>
+                      ))}
+                    </select>
+
+                    <label className="ml-2 text-xs text-[var(--muted)]" htmlFor="month-select">
+                      月份
+                    </label>
+                    <select
+                      id="month-select"
+                      aria-label="切换月份"
+                      value={viewMonth}
+                      onChange={(event) => setViewMonth(Number(event.target.value))}
+                      className="rounded-lg border border-[var(--line-soft)] bg-white px-2 py-1 text-sm text-[var(--foreground)]"
+                    >
+                      {Array.from({ length: 12 }, (_, index) => (
+                        <option key={index} value={index}>
+                          {index + 1}月
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <div className="mt-4 grid grid-cols-7 gap-2 text-center text-xs text-[var(--muted)]">

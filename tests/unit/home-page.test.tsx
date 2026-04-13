@@ -20,6 +20,7 @@ describe("HomePage", () => {
     expect(screen.queryByText("点击单位名称后进入详情页查看完整联系人。")).not.toBeInTheDocument();
 
     expect(screen.getByRole("link", { name: "路桥运营事业部" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "返回当天" })).toBeInTheDocument();
     expect(screen.getAllByText("值班领导")).toHaveLength(3);
     expect(screen.getAllByText("值班中层")).toHaveLength(3);
     expect(screen.getAllByText("值班人员")).toHaveLength(3);
@@ -28,7 +29,7 @@ describe("HomePage", () => {
     expect(screen.getByText("范文东 18660196617")).toBeInTheDocument();
   });
 
-  it("当 mode=database 时展示数据库模式提示", async () => {
+  it("当 mode=database 时不再展示当前模式文案", async () => {
     render(
       await HomePage({
         searchParams: Promise.resolve({
@@ -37,7 +38,7 @@ describe("HomePage", () => {
       }),
     );
 
-    expect(screen.getByText("当前模式：连接远程 MySQL")).toBeInTheDocument();
+    expect(screen.queryByText(/当前模式：/)).not.toBeInTheDocument();
   });
 
   it("展开月历后选择日期会自动收起并刷新摘要数据", async () => {
@@ -52,10 +53,15 @@ describe("HomePage", () => {
     await user.click(screen.getByRole("button", { name: "展开日期选择" }));
 
     expect(screen.getByText("4月日历面板")).toBeInTheDocument();
+    expect(screen.getByLabelText("切换年份")).toBeInTheDocument();
+    expect(screen.getByLabelText("切换月份")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "选择 2026年4月11日" }));
 
     expect(screen.queryByText("4月日历面板")).not.toBeInTheDocument();
     expect(screen.getByText("2026年4月11日")).toBeInTheDocument();
     expect(screen.getByText("陈龙 电话待补充")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "返回当天" }));
+    expect(screen.getByText("2026年4月10日")).toBeInTheDocument();
   });
 });
