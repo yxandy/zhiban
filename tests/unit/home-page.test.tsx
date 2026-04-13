@@ -47,6 +47,7 @@ describe("HomePage", () => {
     expect(screen.queryByText("当日三项值班摘要")).not.toBeInTheDocument();
     expect(screen.getByText("范文东")).toBeInTheDocument();
     expect(screen.getByText("18660196617")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "拨打 18660196617" })).toHaveAttribute("href", "tel:18660196617");
     expect(screen.queryByText("点单位看详情")).not.toBeInTheDocument();
   });
 

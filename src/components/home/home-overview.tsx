@@ -19,12 +19,25 @@ function SummaryLine({
   name: string;
   phone?: string;
 }) {
+  const hasPhone = Boolean(phone);
+
   return (
     <div className="grid grid-cols-[76px_1fr] gap-3 border-b border-dashed border-[var(--line-soft)] py-3 last:border-b-0">
       <span className="text-sm font-medium tracking-[0.08em] text-[var(--muted)]">{label}</span>
-      <div className="flex min-w-0 items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
-        <span className="truncate">{name}</span>
-        <span className="ml-auto shrink-0 text-right tabular-nums">{phone || "待补充"}</span>
+      <div className="flex min-w-0 items-center gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
+          <span className="truncate">{name}</span>
+          <span className="ml-auto shrink-0 text-right tabular-nums">{phone || "待补充"}</span>
+        </div>
+        {hasPhone ? (
+          <a
+            href={`tel:${phone}`}
+            aria-label={`拨打 ${phone}`}
+            className="shrink-0 rounded-full border border-[var(--line-soft)] bg-white px-3 py-1 text-xs text-[var(--foreground)]"
+          >
+            拨号
+          </a>
+        ) : null}
       </div>
     </div>
   );
