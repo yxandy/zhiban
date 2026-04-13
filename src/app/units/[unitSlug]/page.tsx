@@ -32,8 +32,8 @@ function ContactLine({
   return (
     <div className="flex items-center justify-between gap-3 border-b border-dashed border-[var(--line-soft)] py-2 last:border-b-0">
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        <p className="truncate text-sm font-medium text-[var(--foreground)]">{personName}</p>
-        <span className="ml-auto shrink-0 text-right text-sm font-medium tabular-nums text-[var(--foreground)]">
+        <p className="truncate text-sm font-semibold text-[var(--foreground)]">{personName}</p>
+        <span className="ml-auto shrink-0 text-right text-sm font-semibold tabular-nums text-[var(--foreground)]">
           {phone ? phone : "电话未上传"}
         </span>
       </div>
