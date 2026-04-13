@@ -12,8 +12,8 @@ describe("UnitDetailPage", () => {
       }),
     );
 
-    expect(screen.getByRole("link", { name: "返回首页" })).toBeInTheDocument();
-    expect(screen.getByText("路桥运营事业部")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "返回" })).toBeInTheDocument();
+    expect(screen.getByText("路桥运营事业部值班详情")).toBeInTheDocument();
     expect(screen.getByText("2026年4月10日")).toBeInTheDocument();
     expect(screen.getByText("运营调度中心")).toBeInTheDocument();
     expect(screen.getByText("运营调度中心 范文东 18660196617")).toBeInTheDocument();
@@ -25,11 +25,12 @@ describe("UnitDetailPage", () => {
     render(
       await UnitDetailPage({
         params: Promise.resolve({ unitSlug: "not-exists" }),
-        searchParams: Promise.resolve({ date: "2026-04-10" }),
+        searchParams: Promise.resolve({ date: "2026-04-10", unitName: "工程事业部" }),
       }),
     );
 
-    expect(screen.getByText("未找到该单位的值班详情")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "返回首页" })).toBeInTheDocument();
+    expect(screen.getByText("工程事业部值班详情")).toBeInTheDocument();
+    expect(screen.getByText("该单位本月没有报送更多的值班详情")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "返回" })).toBeInTheDocument();
   });
 });

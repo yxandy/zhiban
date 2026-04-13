@@ -9,6 +9,7 @@ type UnitDetailPageProps = {
   searchParams?: Promise<{
     date?: string;
     mode?: string;
+    unitName?: string;
   }>;
 };
 
@@ -60,24 +61,27 @@ export default async function UnitDetailPage({ params, searchParams }: UnitDetai
     date: query?.date,
     forceMode: query?.mode,
   });
+  const displayUnitName = detail?.unitName ?? query?.unitName ?? "该单位";
 
   return (
     <main className="min-h-screen px-4 py-6 sm:px-6 lg:px-8">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
         <section className="rounded-[28px] border border-[var(--border)] bg-[var(--card)] px-5 py-4 shadow-[0_24px_60px_rgba(18,31,41,0.08)]">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <Link href="/" className="text-sm text-[var(--muted)] underline-offset-4 hover:underline">
-                返回首页
+          <div className="space-y-2">
+            <div className="flex justify-end">
+              <Link
+                href="/"
+                className="shrink-0 rounded-full border border-[var(--line-soft)] bg-white px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-[0_8px_24px_rgba(18,31,41,0.08)] transition hover:-translate-y-0.5"
+              >
+                返回
               </Link>
-              <h1 className="mt-2 text-2xl font-semibold text-[var(--foreground)]">
-                {detail ? detail.unitName : "值班详情"}
-              </h1>
-              <p className="mt-1 text-sm text-[var(--muted)]">{formatChineseDate(query?.date)}</p>
             </div>
-            <span className="rounded-full border border-[var(--line-soft)] bg-white px-3 py-1 text-xs text-[var(--muted)]">
-              紧凑详情
-            </span>
+            <div>
+              <h1 className="text-2xl font-semibold text-[var(--foreground)]">{`${displayUnitName}值班详情`}</h1>
+            </div>
+            <div>
+              <p className="text-sm text-[var(--muted)]">{formatChineseDate(query?.date)}</p>
+            </div>
           </div>
         </section>
 
@@ -102,7 +106,7 @@ export default async function UnitDetailPage({ params, searchParams }: UnitDetai
           ))
         ) : (
           <section className="rounded-[24px] border border-dashed border-[var(--border)] bg-[var(--card)] px-5 py-8 text-center text-[var(--muted)]">
-            未找到该单位的值班详情
+            该单位本月没有报送更多的值班详情
           </section>
         )}
       </div>

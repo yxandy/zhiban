@@ -65,7 +65,13 @@ function UnitOverviewCard({ item, date }: { item: DutyOverviewItem; date: string
     <article className="overflow-hidden rounded-[28px] border border-[var(--border)] bg-[var(--card)] shadow-[0_20px_50px_rgba(25,35,45,0.08)]">
       <div className="flex items-center justify-between border-b border-[var(--line-soft)] bg-[linear-gradient(180deg,#fffdfa_0%,#f8f1e8_100%)] px-5 py-4">
         <Link
-          href={`/units/${item.unitSlug}?date=${date}`}
+          href={{
+            pathname: `/units/${item.unitSlug}`,
+            query: {
+              date,
+              unitName: item.unitName,
+            },
+          }}
           className="text-lg font-semibold tracking-[0.02em] text-[var(--foreground)] underline-offset-4 transition hover:text-[var(--accent)] hover:underline"
         >
           {item.unitName}
