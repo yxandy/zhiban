@@ -23,19 +23,20 @@ function formatChineseDate(date?: string) {
 }
 
 function ContactLine({
-  departmentName,
   personName,
   phone,
 }: {
-  departmentName: string;
   personName: string;
   phone?: string;
 }) {
-  const content = phone ? `${departmentName} ${personName} ${phone}` : `${departmentName} ${personName} 电话待补充`;
-
   return (
     <div className="flex items-center justify-between gap-3 border-b border-dashed border-[var(--line-soft)] py-2 last:border-b-0">
-      <p className="min-w-0 truncate text-sm font-medium text-[var(--foreground)]">{content}</p>
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <p className="truncate text-sm font-medium text-[var(--foreground)]">{personName}</p>
+        <span className="ml-auto shrink-0 text-right text-sm font-medium tabular-nums text-[var(--foreground)]">
+          {phone ? phone : "电话未上传"}
+        </span>
+      </div>
       {phone ? (
         <a
           href={`tel:${phone}`}
@@ -44,11 +45,7 @@ function ContactLine({
         >
           拨号
         </a>
-      ) : (
-        <span className="shrink-0 rounded-full bg-[var(--surface-soft)] px-3 py-1 text-xs text-[var(--muted)]">
-          待补充
-        </span>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -96,7 +93,6 @@ export default async function UnitDetailPage({ params, searchParams }: UnitDetai
                 {group.contacts.map((contact) => (
                   <ContactLine
                     key={contact.id}
-                    departmentName={contact.departmentName}
                     personName={contact.personName}
                     phone={contact.phone}
                   />

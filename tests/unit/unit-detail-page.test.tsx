@@ -16,8 +16,10 @@ describe("UnitDetailPage", () => {
     expect(screen.getByText("路桥运营事业部值班详情")).toBeInTheDocument();
     expect(screen.getByText("2026年4月10日")).toBeInTheDocument();
     expect(screen.getByText("运营调度中心")).toBeInTheDocument();
-    expect(screen.getByText("运营调度中心 范文东 18660196617")).toBeInTheDocument();
-    expect(screen.getByText("收费管理科 杨洋 电话待补充")).toBeInTheDocument();
+    expect(screen.getByText("范文东")).toBeInTheDocument();
+    expect(screen.getByText("18660196617")).toBeInTheDocument();
+    expect(screen.getByText("杨洋")).toBeInTheDocument();
+    expect(screen.getAllByText("电话未上传").length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: "拨打 18660196617" })).toHaveAttribute("href", "tel:18660196617");
   });
 

@@ -22,9 +22,10 @@ function SummaryLine({
   return (
     <div className="grid grid-cols-[76px_1fr] gap-3 border-b border-dashed border-[var(--line-soft)] py-3 last:border-b-0">
       <span className="text-sm font-medium tracking-[0.08em] text-[var(--muted)]">{label}</span>
-      <p className="truncate text-sm font-semibold text-[var(--foreground)]">
-        {phone ? `${name} ${phone}` : `${name} 电话待补充`}
-      </p>
+      <div className="flex min-w-0 items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
+        <span className="truncate">{name}</span>
+        <span className="ml-auto shrink-0 text-right tabular-nums">{phone || "待补充"}</span>
+      </div>
     </div>
   );
 }

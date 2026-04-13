@@ -25,9 +25,11 @@ describe("HomePage", () => {
     expect(screen.getAllByText("值班领导")).toHaveLength(3);
     expect(screen.getAllByText("值班中层")).toHaveLength(3);
     expect(screen.getAllByText("值班人员")).toHaveLength(3);
-    expect(screen.getByText("杨洋 电话待补充")).toBeInTheDocument();
+    expect(screen.getByText("杨洋")).toBeInTheDocument();
+    expect(screen.getAllByText("待补充").length).toBeGreaterThan(0);
     expect(screen.queryByText("当日三项值班摘要")).not.toBeInTheDocument();
-    expect(screen.getByText("范文东 18660196617")).toBeInTheDocument();
+    expect(screen.getByText("范文东")).toBeInTheDocument();
+    expect(screen.getByText("18660196617")).toBeInTheDocument();
     expect(screen.queryByText("点单位看详情")).not.toBeInTheDocument();
   });
 
@@ -61,7 +63,7 @@ describe("HomePage", () => {
 
     expect(screen.queryByText("4月日历面板")).not.toBeInTheDocument();
     expect(screen.getByText("2026年4月11日")).toBeInTheDocument();
-    expect(screen.getByText("陈龙 电话待补充")).toBeInTheDocument();
+    expect(screen.getByText("陈龙")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "返回当天" }));
     expect(screen.getByText("2026年4月10日")).toBeInTheDocument();
