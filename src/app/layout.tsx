@@ -10,7 +10,15 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="zh-CN">
-      <body>{children}</body>
+      <body
+        suppressHydrationWarning
+        style={{
+          WebkitTextSizeAdjust: "100%",
+          WebkitTouchCallout: "none",
+        }}
+      >
+        {children}
+      </body>
     </html>
   );
 }

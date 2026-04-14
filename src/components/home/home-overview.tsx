@@ -189,7 +189,7 @@ export function HomeOverview({ days, initialDay }: HomeOverviewProps) {
               {isCalendarOpen ? (
                 <div className="mt-4 rounded-[22px] border border-[var(--line-soft)] bg-white p-4">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold text-[var(--foreground)]">4月日历面板</p>
+                    <p className="text-sm font-semibold text-[var(--foreground)]">{viewMonth + 1}月日历面板</p>
                     <button
                       type="button"
                       onClick={() => setIsCalendarOpen(false)}
