@@ -13,6 +13,8 @@ describe("UnitDetailPage", () => {
     );
 
     expect(screen.getByRole("link", { name: "返回" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "展开日期选择" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "返回当天" })).toBeInTheDocument();
     expect(screen.getByText("路桥运营事业部值班详情")).toBeInTheDocument();
     expect(screen.getByText("2026年4月10日")).toBeInTheDocument();
     expect(screen.getByText("运营调度中心")).toBeInTheDocument();
@@ -34,5 +36,7 @@ describe("UnitDetailPage", () => {
     expect(screen.getByText("工程事业部值班详情")).toBeInTheDocument();
     expect(screen.getByText("该单位本月没有报送更多的值班详情")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "返回" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "展开日期选择" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "返回当天" })).toBeInTheDocument();
   });
 });

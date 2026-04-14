@@ -1,5 +1,4 @@
-import Link from "next/link";
-
+import { DetailDateSwitcher } from "@/components/detail/detail-date-switcher";
 import { getUnitDetailData } from "@/lib/repositories/duty-repository";
 
 type UnitDetailPageProps = {
@@ -53,26 +52,26 @@ function ContactLine({
 export default async function UnitDetailPage({ params, searchParams }: UnitDetailPageProps) {
   const routeParams = await params;
   const query = searchParams ? await searchParams : undefined;
-  const { detail } = await getUnitDetailData({
+  const { detail, availableDates } = await getUnitDetailData({
     unitSlug: routeParams.unitSlug,
     date: query?.date,
     forceMode: query?.mode,
   });
   const displayUnitName = detail?.unitName ?? query?.unitName ?? "该单位";
+  const currentDate = /^\d{4}-\d{2}-\d{2}$/.test(query?.date ?? "") ? (query?.date as string) : detail?.date ?? "";
 
   return (
     <main className="min-h-screen px-4 py-6 sm:px-6 lg:px-8">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
         <section className="rounded-[28px] border border-[var(--border)] bg-[var(--card)] px-5 py-4 shadow-[0_24px_60px_rgba(18,31,41,0.08)]">
           <div className="space-y-2">
-            <div className="flex justify-end">
-              <Link
-                href="/"
-                className="shrink-0 rounded-full border border-[var(--line-soft)] bg-white px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-[0_8px_24px_rgba(18,31,41,0.08)] transition hover:-translate-y-0.5"
-              >
-                返回
-              </Link>
-            </div>
+            <DetailDateSwitcher
+              unitSlug={routeParams.unitSlug}
+              unitName={query?.unitName}
+              mode={query?.mode}
+              currentDate={currentDate}
+              availableDates={availableDates}
+            />
             <div>
               <h1 className="text-2xl font-semibold text-[var(--foreground)]">{`${displayUnitName}值班详情`}</h1>
             </div>
