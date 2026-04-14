@@ -191,6 +191,9 @@ export function DetailDateSwitcher(props: DetailDateSwitcherProps) {
                   mode,
                 })}
                 aria-label={`选择 ${toChineseDateLabel(cell.isoDate)}`}
+                onClick={() => {
+                  setIsCalendarOpen(false);
+                }}
                 className={`flex aspect-square items-center justify-center rounded-2xl border text-sm transition ${
                   !cell.isCurrentMonth
                     ? "pointer-events-none border-transparent bg-transparent text-[#c7beb3]"
