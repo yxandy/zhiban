@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 
+import { buildDepartmentAnchorId } from "@/lib/anchor";
 import type { DutyDayRecord, DutyOverviewItem } from "@/lib/mock/duty-home-data";
 
 type HomeOverviewProps = {
   days: DutyDayRecord[];
   initialDay: DutyDayRecord;
+  mode?: string;
 };
 
 function SummaryLine({
@@ -92,17 +94,33 @@ function getChinaTodayIsoDate() {
   return `${year}-${month}-${day}`;
 }
 
-function UnitOverviewCard({ item, date }: { item: DutyOverviewItem; date: string }) {
+function UnitOverviewCard({
+  item,
+  date,
+  mode,
+  isSearchHit,
+}: {
+  item: DutyOverviewItem;
+  date: string;
+  mode?: string;
+  isSearchHit?: boolean;
+}) {
   const detailHref = {
     pathname: `/units/${item.unitSlug}`,
     query: {
       date,
       unitName: item.unitName,
+      ...(mode ? { mode } : {}),
     },
   } as const;
 
   return (
-    <article className="overflow-hidden rounded-[28px] border border-[var(--border)] bg-[var(--card)] shadow-[0_20px_50px_rgba(25,35,45,0.08)]">
+    <article
+      data-unit-slug={item.unitSlug}
+      className={`overflow-hidden rounded-[28px] border bg-[var(--card)] shadow-[0_20px_50px_rgba(25,35,45,0.08)] transition ${
+        isSearchHit ? "border-[var(--accent)] [animation:search-hit-flash_0.8s_ease-in-out_2]" : "border-[var(--border)]"
+      }`}
+    >
       <div className="flex items-center justify-between border-b border-[var(--line-soft)] bg-[linear-gradient(180deg,#fffdfa_0%,#f8f1e8_100%)] px-5 py-4">
         <Link
           href={detailHref}
@@ -128,11 +146,29 @@ function UnitOverviewCard({ item, date }: { item: DutyOverviewItem; date: string
   );
 }
 
-export function HomeOverview({ days, initialDay }: HomeOverviewProps) {
+type SearchApiResult =
+  | {
+      type: "home-unit";
+      unitSlug: string;
+      unitName: string;
+    }
+  | {
+      type: "detail-department";
+      unitSlug: string;
+      unitName: string;
+      departmentName: string;
+    }
+  | null;
+
+export function HomeOverview({ days, initialDay, mode }: HomeOverviewProps) {
   const [selectedDate, setSelectedDate] = useState(initialDay.date);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [viewYear, setViewYear] = useState(new Date(`${initialDay.date}T00:00:00`).getFullYear());
   const [viewMonth, setViewMonth] = useState(new Date(`${initialDay.date}T00:00:00`).getMonth());
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const [searchError, setSearchError] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [hitUnitSlug, setHitUnitSlug] = useState<string | null>(null);
 
   const currentDay = days.find((item) => item.date === selectedDate);
   const activeDate = currentDay?.date ?? selectedDate;
@@ -143,6 +179,71 @@ export function HomeOverview({ days, initialDay }: HomeOverviewProps) {
   const yearSet = new Set(days.map((item) => Number(item.date.slice(0, 4))));
   yearSet.add(viewYear);
   const yearOptions = [...yearSet].sort((a, b) => a - b);
+  const canSearch = useMemo(() => searchKeyword.trim().length > 0 && !searching, [searchKeyword, searching]);
+
+  async function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const keyword = searchKeyword.trim();
+    if (!keyword) {
+      setSearchError("请输入搜索关键词");
+      return;
+    }
+
+    setSearching(true);
+    setSearchError("");
+    setHitUnitSlug(null);
+
+    try {
+      const params = new URLSearchParams();
+      params.set("keyword", keyword);
+      params.set("date", selectedDate);
+      if (mode) {
+        params.set("mode", mode);
+      }
+
+      const response = await fetch(`/api/home-search?${params.toString()}`);
+      const json = (await response.json()) as {
+        ok?: boolean;
+        message?: string;
+        data?: SearchApiResult;
+      };
+
+      if (!response.ok || !json.ok) {
+        setSearchError(json.message || "搜索失败，请稍后重试。");
+        return;
+      }
+
+      if (!json.data) {
+        setSearchError("相关搜索没有对应单位");
+        return;
+      }
+
+      if (json.data.type === "home-unit") {
+        setHitUnitSlug(json.data.unitSlug);
+        const target = document.querySelector(`[data-unit-slug="${json.data.unitSlug}"]`);
+        target?.scrollIntoView({ behavior: "smooth", block: "start" });
+        window.setTimeout(() => {
+          setHitUnitSlug(null);
+        }, 1800);
+        return;
+      }
+
+      const detailQuery = new URLSearchParams();
+      detailQuery.set("date", selectedDate);
+      detailQuery.set("unitName", json.data.unitName);
+      if (mode) {
+        detailQuery.set("mode", mode);
+      }
+      const detailHref = `/units/${json.data.unitSlug}?${detailQuery.toString()}#${buildDepartmentAnchorId(
+        json.data.departmentName,
+      )}`;
+      window.location.href = detailHref;
+    } catch {
+      setSearchError("搜索失败，请稍后重试。");
+    } finally {
+      setSearching(false);
+    }
+  }
 
   return (
     <main className="min-h-screen px-4 py-6 sm:px-6 lg:px-8">
@@ -277,9 +378,46 @@ export function HomeOverview({ days, initialDay }: HomeOverviewProps) {
           </div>
         </section>
 
+        <section className="rounded-[24px] border border-[var(--border)] bg-[var(--card)] px-5 py-4 shadow-[0_20px_50px_rgba(25,35,45,0.06)]">
+          <form className="space-y-2" onSubmit={handleSearchSubmit}>
+            <label htmlFor="home-search-input" className="text-sm font-semibold text-[var(--foreground)]">
+              快速搜索单位/收费站
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                id="home-search-input"
+                type="text"
+                value={searchKeyword}
+                onChange={(event) => {
+                  setSearchKeyword(event.target.value);
+                  if (searchError) {
+                    setSearchError("");
+                  }
+                }}
+                placeholder="例如：枣庄 或 枣庄收费站"
+                className="w-full rounded-xl border border-[var(--line-soft)] bg-white px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
+              />
+              <button
+                type="submit"
+                disabled={!canSearch}
+                className="shrink-0 rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {searching ? "搜索中..." : "搜索"}
+              </button>
+            </div>
+          </form>
+          {searchError ? <p className="mt-2 text-sm text-red-600">{searchError}</p> : null}
+        </section>
+
         <section className="grid gap-4">
           {activeOverviewItems.map((item) => (
-            <UnitOverviewCard key={item.id} item={item} date={activeDate} />
+            <UnitOverviewCard
+              key={item.id}
+              item={item}
+              date={activeDate}
+              mode={mode}
+              isSearchHit={hitUnitSlug === item.unitSlug}
+            />
           ))}
         </section>
       </div>

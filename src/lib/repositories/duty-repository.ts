@@ -3,6 +3,7 @@ import {
   dutyDayRecords,
   getDutyDayRecord,
   getDutyUnitDetailRecord,
+  dutyUnitDetailRecords,
   type DutyDayRecord,
   type DutyOverviewItem,
   type DutyUnitDetailRecord,
@@ -15,6 +16,19 @@ type HomeOverviewData = {
   initialDay: DutyDayRecord;
   sourceMode: "mock" | "database";
 };
+
+export type HomeSearchResult =
+  | {
+      type: "home-unit";
+      unitSlug: string;
+      unitName: string;
+    }
+  | {
+      type: "detail-department";
+      unitSlug: string;
+      unitName: string;
+      departmentName: string;
+    };
 
 export async function getHomeOverviewData(input: {
   date?: string;
@@ -68,6 +82,33 @@ export async function getUnitDetailData(input: {
     availableDates: mockDates,
     sourceMode: "mock",
   };
+}
+
+export async function searchHomeTarget(input: {
+  keyword: string;
+  date: string;
+  forceMode?: string;
+}): Promise<HomeSearchResult | null> {
+  const preferDatabase = input.forceMode === "database" || process.env.USE_MOCK_DATA === "false";
+  const normalizedKeyword = normalizeSearchText(input.keyword);
+  if (!normalizedKeyword) {
+    return null;
+  }
+
+  if (preferDatabase) {
+    const fromDb = await searchHomeTargetFromDatabase({
+      keyword: normalizedKeyword,
+      date: input.date,
+    });
+    if (fromDb) {
+      return fromDb;
+    }
+  }
+
+  return searchHomeTargetFromMock({
+    keyword: normalizedKeyword,
+    date: input.date,
+  });
 }
 
 async function readHomeOverviewFromDatabase(date?: string): Promise<HomeOverviewData | null> {
@@ -274,4 +315,132 @@ function toChineseDate(isoDate: string) {
 function toMonthLabel(isoDate: string) {
   const [year, month] = isoDate.split("-");
   return `${year}年${Number(month)}月`;
+}
+
+function normalizeSearchText(input: string): string {
+  return input.replace(/\s+/g, "").trim();
+}
+
+async function searchHomeTargetFromDatabase(input: {
+  keyword: string;
+  date: string;
+}): Promise<HomeSearchResult | null> {
+  const dayStart = new Date(`${input.date}T00:00:00+08:00`);
+  const dayEnd = new Date(dayStart);
+  dayEnd.setDate(dayEnd.getDate() + 1);
+
+  const overviewRows = await prisma.dutyOverview.findMany({
+    where: {
+      dutyDate: {
+        gte: dayStart,
+        lt: dayEnd,
+      },
+    },
+    include: {
+      unit: {
+        select: {
+          id: true,
+          name: true,
+          code: true,
+          sortOrder: true,
+        },
+      },
+    },
+    orderBy: [{ unit: { sortOrder: "asc" } }, { unitId: "asc" }],
+  });
+
+  const matchedUnit = overviewRows.find((row) =>
+    normalizeSearchText(row.unit.name).includes(input.keyword),
+  );
+  if (matchedUnit) {
+    return {
+      type: "home-unit",
+      unitSlug: matchedUnit.unit.code ?? `unit-${matchedUnit.unit.id}`,
+      unitName: matchedUnit.unit.name,
+    };
+  }
+
+  const contactRows = await prisma.dutyContact.findMany({
+    where: {
+      dutyDate: {
+        gte: dayStart,
+        lt: dayEnd,
+      },
+    },
+    select: {
+      departmentName: true,
+      unit: {
+        select: {
+          id: true,
+          name: true,
+          code: true,
+        },
+      },
+    },
+    orderBy: [{ unit: { sortOrder: "asc" } }, { unitId: "asc" }, { id: "asc" }],
+  });
+  const normalizedDepartmentKeyword = normalizeDepartmentSearch(input.keyword);
+  const matchedDepartment = contactRows.find(
+    (row) => {
+      const normalizedName = normalizeDepartmentSearch(row.departmentName);
+      return (
+        normalizedName === normalizedDepartmentKeyword ||
+        normalizedName.includes(normalizedDepartmentKeyword)
+      );
+    },
+  );
+  if (!matchedDepartment) {
+    return null;
+  }
+
+  return {
+    type: "detail-department",
+    unitSlug: matchedDepartment.unit.code ?? `unit-${matchedDepartment.unit.id}`,
+    unitName: matchedDepartment.unit.name,
+    departmentName: matchedDepartment.departmentName,
+  };
+}
+
+function searchHomeTargetFromMock(input: {
+  keyword: string;
+  date: string;
+}): HomeSearchResult | null {
+  const dayRecord = dutyDayRecords.find((item) => item.date === input.date);
+  const matchedUnit = dayRecord?.overviewItems.find((item) =>
+    normalizeSearchText(item.unitName).includes(input.keyword),
+  );
+  if (matchedUnit) {
+    return {
+      type: "home-unit",
+      unitSlug: matchedUnit.unitSlug,
+      unitName: matchedUnit.unitName,
+    };
+  }
+
+  const detailRecords = dutyUnitDetailRecords.filter((item) => item.date === input.date);
+  const normalizedDepartmentKeyword = normalizeDepartmentSearch(input.keyword);
+  for (const detail of detailRecords) {
+    const matchedGroup = detail.groups.find(
+      (group) => {
+        const normalizedName = normalizeDepartmentSearch(group.departmentName);
+        return (
+          normalizedName === normalizedDepartmentKeyword ||
+          normalizedName.includes(normalizedDepartmentKeyword)
+        );
+      },
+    );
+    if (matchedGroup) {
+      return {
+        type: "detail-department",
+        unitSlug: detail.unitSlug,
+        unitName: detail.unitName,
+        departmentName: matchedGroup.departmentName,
+      };
+    }
+  }
+  return null;
+}
+
+function normalizeDepartmentSearch(input: string): string {
+  return normalizeSearchText(input).replace(/收费/g, "");
 }

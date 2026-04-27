@@ -1,5 +1,6 @@
 import { ContactLine } from "@/components/detail/contact-line";
 import { DetailDateSwitcher } from "@/components/detail/detail-date-switcher";
+import { buildDepartmentAnchorId } from "@/lib/anchor";
 import { getUnitDetailData } from "@/lib/repositories/duty-repository";
 
 type UnitDetailPageProps = {
@@ -78,7 +79,8 @@ export default async function UnitDetailPage({ params, searchParams }: UnitDetai
           detail.groups.map((group) => (
             <section
               key={group.departmentName}
-              className="rounded-[24px] border border-[var(--border)] bg-[var(--card)] px-5 py-4 shadow-[0_20px_50px_rgba(25,35,45,0.06)]"
+              id={buildDepartmentAnchorId(group.departmentName)}
+              className="search-hit-target rounded-[24px] border border-[var(--border)] bg-[var(--card)] px-5 py-4 shadow-[0_20px_50px_rgba(25,35,45,0.06)]"
             >
               <h2 className="text-sm font-semibold tracking-[0.08em] text-[var(--muted)]">{group.departmentName}</h2>
               <div className="mt-2">

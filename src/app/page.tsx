@@ -15,5 +15,5 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     forceMode: params?.mode,
   });
 
-  return <HomeOverview days={data.days} initialDay={data.initialDay} />;
+  return <HomeOverview days={data.days} initialDay={data.initialDay} mode={params?.mode} />;
 }
