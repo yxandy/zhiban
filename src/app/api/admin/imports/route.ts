@@ -6,13 +6,25 @@ import { getRuntimeConfig } from "@/lib/env";
 import { runDutyExcelImportCommit, runDutyExcelImportDryRun } from "@/lib/services/import-service";
 
 export async function POST(request: Request) {
-  const formData = await request.formData();
-  return handleAdminImportForm(formData);
+  try {
+    const formData = await request.formData();
+    return await handleAdminImportForm(formData);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "未知错误";
+    return NextResponse.json(
+      {
+        ok: false,
+        message,
+      },
+      { status: 500 },
+    );
+  }
 }
 
 export async function handleAdminImportForm(formData: FormData) {
   const password = String(formData.get("password") ?? "");
   const sourceMonthRaw = String(formData.get("sourceMonth") ?? "").trim();
+  const sourceMonth = normalizeSourceMonth(sourceMonthRaw);
   const mode = String(formData.get("mode") ?? "dry-run");
   const levelOneFile = formData.get("levelOneFile");
   const levelTwoFile = formData.get("levelTwoFile");
@@ -46,7 +58,7 @@ export async function handleAdminImportForm(formData: FormData) {
 
     return handleAdminImportPayload({
       password,
-      sourceMonth: sourceMonthRaw || undefined,
+      sourceMonth: sourceMonth || undefined,
       mode: mode === "commit" ? "commit" : "dry-run",
       levelOneBuffer,
       levelTwoBuffer,
@@ -84,18 +96,19 @@ export async function handleAdminImportPayload(input: {
   }
 
   const mode = input.mode ?? "dry-run";
+  const normalizedMonth = normalizeSourceMonth(input.sourceMonth ?? "");
   const result =
     mode === "commit"
       ? await runDutyExcelImportCommit({
           levelOneBuffer: input.levelOneBuffer,
           levelTwoBuffer: input.levelTwoBuffer,
-          sourceMonth: input.sourceMonth,
+          sourceMonth: normalizedMonth || undefined,
           fileName: input.fileName,
         })
       : runDutyExcelImportDryRun({
           levelOneBuffer: input.levelOneBuffer,
           levelTwoBuffer: input.levelTwoBuffer,
-          sourceMonth: input.sourceMonth,
+          sourceMonth: normalizedMonth || undefined,
         });
 
   return NextResponse.json({
@@ -110,4 +123,21 @@ function isUploadBinary(value: FormDataEntryValue | null): value is Blob {
     return false;
   }
   return value instanceof Blob;
+}
+
+function normalizeSourceMonth(input: string): string {
+  const normalized = input.trim();
+  if (!normalized) {
+    return "";
+  }
+  const matched = normalized.match(/^(\d{4})-(\d{1,2})$/);
+  if (!matched) {
+    return normalized;
+  }
+  const year = matched[1];
+  const month = Number(matched[2]);
+  if (!Number.isFinite(month) || month < 1 || month > 12) {
+    return normalized;
+  }
+  return `${year}-${String(month).padStart(2, "0")}`;
 }

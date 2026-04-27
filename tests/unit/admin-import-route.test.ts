@@ -120,4 +120,37 @@ describe("POST /api/admin/imports", () => {
     expect(runDutyExcelImportCommitMock).toHaveBeenCalledTimes(1);
     expect(runDutyExcelImportDryRunMock).not.toHaveBeenCalled();
   });
+
+  it("sourceMonth 传 2026-5 时应自动归一化为 2026-05", async () => {
+    getRuntimeConfigMock.mockReturnValue({
+      adminImportPassword: "correct-password",
+    });
+    runDutyExcelImportCommitMock.mockResolvedValue({
+      sourceMonth: "2026-05",
+      overviewCount: 1,
+      contactCount: 1,
+      filteredStatusRows: 0,
+      importBatchId: 99,
+      skippedTemplateOnlyUnits: [],
+      unmatchedUnitsFromLevelOne: [],
+      unmatchedUnitsFromLevelTwo: [],
+      warnings: [],
+    });
+
+    const { handleAdminImportPayload } = await import("@/app/api/admin/imports/route");
+    await handleAdminImportPayload({
+      password: "correct-password",
+      sourceMonth: "2026-5",
+      mode: "commit",
+      levelOneBuffer: Buffer.from("a"),
+      levelTwoBuffer: Buffer.from("b"),
+      fileName: "一级.xlsx + 二级.xlsx",
+    });
+
+    expect(runDutyExcelImportCommitMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceMonth: "2026-05",
+      }),
+    );
+  });
 });

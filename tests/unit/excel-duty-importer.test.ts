@@ -1,9 +1,11 @@
 import path from "node:path";
+import * as XLSX from "xlsx";
 
 import { describe, expect, it } from "vitest";
 
 import {
   parseLevelOneWorkbook,
+  parseLevelTwoWorkbookFromBuffer,
   parseLevelTwoWorkbook,
   splitNameAndPhone,
 } from "@/lib/importers/excel-duty-importer";
@@ -12,6 +14,7 @@ describe("excel duty importer", () => {
   const docsDir = path.resolve(process.cwd(), "docs");
   const levelOneFile = path.join(docsDir, "一级.xlsx");
   const levelTwoFile = path.join(docsDir, "二级.xlsx");
+  const levelTwoMayFile = path.join(docsDir, "new 二级.xlsx");
 
   it("应能拆分一级姓名与电话", () => {
     expect(splitNameAndPhone("于忠胜13589911999")).toEqual({
@@ -70,5 +73,89 @@ describe("excel duty importer", () => {
     expect(parsed.records.some((item) => item.unitName === "德州运管中心-映射")).toBe(
       true,
     );
+  });
+
+  it("应能解析五月二级详情并覆盖31日字段", () => {
+    const parsed = parseLevelTwoWorkbook(levelTwoMayFile, {
+      sourceMonth: "2026-05",
+      unitAliasMap: {
+        德州运管中心: "德州运管中心-映射",
+      },
+    });
+
+    const sample = parsed.records.find(
+      (item) =>
+        item.unitName === "德州运管中心-映射" &&
+        item.departmentName === "德州站" &&
+        item.dutyDate === "2026-05-31",
+    );
+    expect(sample).toBeDefined();
+    expect(sample?.personName).toBe("崔红芬");
+    expect(sample?.role).toBe("站长");
+    expect(sample?.mobilePhone).toBe("13505447555");
+    expect(sample?.landlineType).toBe("internal");
+    expect(sample?.landlinePhone).toBe("230701");
+  });
+
+  it("应能按规则拆分电话并识别关停及多联系人", () => {
+    const workbook = XLSX.utils.book_new();
+    const rows = [
+      [
+        "2026年5月份收费站值班表",
+      ],
+      [
+        "序号",
+        "运管中心",
+        "",
+        "收费站",
+        "1日值班人员/职务/手机号/固话",
+        "31日值班人员/职务/手机号/固话",
+      ],
+      ["1", "甲中心", "", "甲站", "张三/管理员/13800000000/0531-88990011", "关停"],
+      ["2", "", "", "乙站", "李四/副站长/13900000000/无固话\n王五/站长/13700000000/262751（跟班）", ""],
+    ];
+    const sheet = XLSX.utils.aoa_to_sheet(rows);
+    XLSX.utils.book_append_sheet(workbook, sheet, "Sheet1");
+    const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
+
+    const parsed = parseLevelTwoWorkbookFromBuffer(buffer, {
+      sourceMonth: "2026-05",
+    });
+
+    const stationA = parsed.records.find((item) => item.departmentName === "甲站" && item.dutyDate === "2026-05-01");
+    expect(stationA).toMatchObject({
+      personName: "张三",
+      role: "管理员",
+      mobilePhone: "13800000000",
+      landlineType: "landline",
+      landlinePhone: "0531-88990011",
+      statusTag: null,
+    });
+
+    const stationB = parsed.records.filter((item) => item.departmentName === "乙站" && item.dutyDate === "2026-05-01");
+    expect(stationB).toHaveLength(2);
+    expect(stationB[0]).toMatchObject({
+      personName: "李四",
+      role: "副站长",
+      mobilePhone: "13900000000",
+      landlineType: "none",
+      landlinePhone: null,
+    });
+    expect(stationB[1]).toMatchObject({
+      personName: "王五",
+      role: "站长",
+      mobilePhone: "13700000000",
+      landlineType: "internal",
+      landlinePhone: "262751",
+    });
+
+    const shutdown = parsed.records.find((item) => item.departmentName === "甲站" && item.dutyDate === "2026-05-31");
+    expect(shutdown).toMatchObject({
+      statusTag: "shutdown",
+      personName: "",
+      mobilePhone: null,
+      landlineType: null,
+      landlinePhone: null,
+    });
   });
 });

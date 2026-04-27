@@ -1,3 +1,4 @@
+import { ContactLine } from "@/components/detail/contact-line";
 import { DetailDateSwitcher } from "@/components/detail/detail-date-switcher";
 import { getUnitDetailData } from "@/lib/repositories/duty-repository";
 
@@ -21,32 +22,22 @@ function formatChineseDate(date?: string) {
   return `${year}年${Number(month)}月${Number(day)}日`;
 }
 
-function ContactLine({
-  personName,
-  phone,
-}: {
-  personName: string;
-  phone?: string;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3 border-b border-dashed border-[var(--line-soft)] py-2 last:border-b-0">
-      <div className="flex min-w-0 flex-1 items-center gap-2">
-        <p className="truncate text-sm font-semibold text-[var(--foreground)]">{personName}</p>
-        <span className="ml-auto shrink-0 text-right text-sm font-semibold tabular-nums text-[var(--foreground)]">
-          {phone ? phone : "电话未上传"}
-        </span>
-      </div>
-      {phone ? (
-        <a
-          href={`tel:${phone}`}
-          aria-label={`拨打 ${phone}`}
-          className="shrink-0 rounded-full border border-[var(--line-soft)] bg-white px-3 py-1 text-xs text-[var(--foreground)]"
-        >
-          拨号
-        </a>
-      ) : null}
-    </div>
-  );
+function getChinaTodayIsoDate() {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = formatter.formatToParts(now);
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+  if (!year || !month || !day) {
+    return "1970-01-01";
+  }
+  return `${year}-${month}-${day}`;
 }
 
 export default async function UnitDetailPage({ params, searchParams }: UnitDetailPageProps) {
@@ -58,7 +49,9 @@ export default async function UnitDetailPage({ params, searchParams }: UnitDetai
     forceMode: query?.mode,
   });
   const displayUnitName = detail?.unitName ?? query?.unitName ?? "该单位";
-  const currentDate = /^\d{4}-\d{2}-\d{2}$/.test(query?.date ?? "") ? (query?.date as string) : detail?.date ?? "";
+  const currentDate = /^\d{4}-\d{2}-\d{2}$/.test(query?.date ?? "")
+    ? (query?.date as string)
+    : detail?.date ?? getChinaTodayIsoDate();
 
   return (
     <main className="min-h-screen px-4 py-6 sm:px-6 lg:px-8">
@@ -76,7 +69,7 @@ export default async function UnitDetailPage({ params, searchParams }: UnitDetai
               <h1 className="text-2xl font-semibold text-[var(--foreground)]">{`${displayUnitName}值班详情`}</h1>
             </div>
             <div>
-              <p className="text-sm text-[var(--muted)]">{formatChineseDate(query?.date)}</p>
+              <p className="text-sm text-[var(--muted)]">{formatChineseDate(currentDate)}</p>
             </div>
           </div>
         </section>
@@ -89,13 +82,19 @@ export default async function UnitDetailPage({ params, searchParams }: UnitDetai
             >
               <h2 className="text-sm font-semibold tracking-[0.08em] text-[var(--muted)]">{group.departmentName}</h2>
               <div className="mt-2">
-                {group.contacts.map((contact) => (
-                  <ContactLine
-                    key={contact.id}
-                    personName={contact.personName}
-                    phone={contact.phone}
-                  />
-                ))}
+                {group.contacts.some((contact) => contact.statusTag === "shutdown") ? (
+                  <p className="py-2 text-base font-bold text-orange-600">关停</p>
+                ) : (
+                  group.contacts.map((contact) => (
+                    <ContactLine
+                      key={contact.id}
+                      personName={contact.personName}
+                      mobilePhone={contact.mobilePhone || contact.phone}
+                      landlineType={contact.landlineType}
+                      landlinePhone={contact.landlinePhone}
+                    />
+                  ))
+                )}
               </div>
             </section>
           ))

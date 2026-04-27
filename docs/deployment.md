@@ -1,6 +1,6 @@
 # 部署与建表说明（MySQL）
 
-更新时间：2026-04-12
+更新时间：2026-04-27
 
 本文提供当前项目可直接执行的 MySQL 建表 SQL，用于本地/测试库初始化。
 
@@ -112,3 +112,32 @@ DESC duty_contacts;
 
 1. 先在页面 `http://localhost:3000/admin/imports` 继续走 dry-run，确认解析统计稳定。
 2. 你完成建表后，我这边可以继续把 `import-service` 扩展为“可写库模式”，把解析结果写入 `import_batches / duty_overviews / duty_contacts` 并做事务控制。
+
+## 6. 五月二级值班表字段扩展（增量 SQL）
+
+若当前库已按旧结构运行，请执行以下增量 SQL：
+
+```sql
+ALTER TABLE `duty_contacts`
+  ADD COLUMN `mobile_phone` VARCHAR(255) NULL AFTER `phone`,
+  ADD COLUMN `landline_type` VARCHAR(32) NULL AFTER `mobile_phone`,
+  ADD COLUMN `landline_phone` VARCHAR(255) NULL AFTER `landline_type`,
+  ADD COLUMN `status_tag` VARCHAR(64) NULL AFTER `landline_phone`;
+```
+
+说明：
+
+- `phone` 保留向后兼容（历史数据和旧接口仍可读）。
+- 新增字段用于五月二级模板的“手机号/内线/座机/关停状态”展示规则。
+
+## 7. 五月联调验收清单
+
+1. `/admin/imports` 先执行 dry-run，确认存在 31 天统计且 warning 明细可读。
+2. 同批次再执行 commit，确认 `duty_contacts` 新字段写入。
+3. 随机抽查 5 月 31 日详情页，确认可查询。
+4. 抽查“同站同日多联系人”场景，确认可逐条展示。
+5. 抽查“关停”场景，确认仅显示橙色状态，不显示联系人。
+6. 手机端验证点击行为：
+   - 手机号可拨号
+   - 内线点击仅提示，不走 `tel:`
+   - 带区号座机可拨号

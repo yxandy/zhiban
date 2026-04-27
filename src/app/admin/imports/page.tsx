@@ -56,14 +56,23 @@ export default function AdminImportsPage() {
         method: "POST",
         body: formData,
       });
-      const json = (await response.json()) as {
-        ok: boolean;
-        message: string;
-        data?: ImportDryRunResult;
-      };
+      const contentType = response.headers.get("content-type") ?? "";
+      let json: { ok?: boolean; message?: string; data?: ImportDryRunResult } | null = null;
+      let rawMessage = "";
 
-      if (!response.ok || !json.ok) {
-        setErrorMessage(json.message || "解析失败，请稍后重试。");
+      if (contentType.includes("application/json")) {
+        json = (await response.json()) as {
+          ok: boolean;
+          message: string;
+          data?: ImportDryRunResult;
+        };
+      } else {
+        rawMessage = (await response.text()).trim();
+      }
+
+      if (!response.ok || !json?.ok) {
+        const message = json?.message || rawMessage || "解析失败，请稍后重试。";
+        setErrorMessage(message);
         return;
       }
 

@@ -23,6 +23,10 @@ export type DutyContactItem = {
   departmentName: string;
   personName: string;
   phone?: string;
+  mobilePhone?: string;
+  landlineType?: "internal" | "landline" | "none";
+  landlinePhone?: string;
+  statusTag?: "shutdown";
 };
 
 export type DutyContactGroup = {
@@ -135,15 +139,47 @@ export const dutyUnitDetailRecords: DutyUnitDetailRecord[] = [
       {
         departmentName: "运营调度中心",
         contacts: [
-          { id: 1, departmentName: "运营调度中心", personName: "范文东", phone: "18660196617" },
-          { id: 2, departmentName: "运营调度中心", personName: "白雪倩", phone: "15668177521" },
+          {
+            id: 1,
+            departmentName: "运营调度中心",
+            personName: "范文东",
+            phone: "18660196617",
+            mobilePhone: "18660196617",
+            landlineType: "landline",
+            landlinePhone: "0531-88990011",
+          },
+          {
+            id: 2,
+            departmentName: "运营调度中心",
+            personName: "白雪倩",
+            phone: "15668177521",
+            mobilePhone: "15668177521",
+            landlineType: "internal",
+            landlinePhone: "262751",
+          },
         ],
       },
       {
         departmentName: "收费管理科",
         contacts: [
-          { id: 3, departmentName: "收费管理科", personName: "杨洋", phone: "" },
-          { id: 4, departmentName: "收费管理科", personName: "吴书昌", phone: "" },
+          {
+            id: 3,
+            departmentName: "收费管理科",
+            personName: "杨洋",
+            phone: "",
+            landlineType: "none",
+          },
+        ],
+      },
+      {
+        departmentName: "平原南站",
+        contacts: [
+          {
+            id: 4,
+            departmentName: "平原南站",
+            personName: "",
+            statusTag: "shutdown",
+          },
         ],
       },
     ],

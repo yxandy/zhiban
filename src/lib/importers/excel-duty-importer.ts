@@ -18,6 +18,10 @@ export type DutyContactImportRecord = {
   personName: string;
   role: string | null;
   phone: string | null;
+  mobilePhone: string | null;
+  landlineType: "internal" | "landline" | "none" | null;
+  landlinePhone: string | null;
+  statusTag: "shutdown" | null;
 };
 
 export type LevelOneParseResult = {
@@ -191,29 +195,40 @@ function parseLevelTwoWorkbookInternal(
   const records: DutyContactImportRecord[] = [];
   const warnings: string[] = [];
   let filteredStatusRows = 0;
+  const headerRow = rows[1] ?? [];
+  const centerColumnIndex = findColumnIndex(headerRow, /^运管中心$/);
+  const stationColumnIndex = findColumnIndex(headerRow, /^收费站$/);
+  const dayColumns = readDayColumns(headerRow);
 
-  // 二级真实文件从第 3 行开始是数据，运管中心列需要前向填充。
+  if (centerColumnIndex < 0 || stationColumnIndex < 0 || dayColumns.length === 0) {
+    return {
+      records: [],
+      filteredStatusRows: 0,
+      warnings: ["二级工作簿表头缺少必要列（运管中心/收费站/日期列）"],
+    };
+  }
+
+  // 二级真实文件从第3行开始是数据，运管中心列需要前向填充。
   let currentCenter = "";
   for (let i = 2; i < rows.length; i += 1) {
     const row = rows[i];
-    const centerCandidate = normalizeCell(row[2]);
+    const centerCandidateRaw = normalizeCell(row[centerColumnIndex]);
+    const centerFallback = normalizeCell(row[centerColumnIndex + 1]);
+    const centerCandidate = isLikelyCenterName(centerCandidateRaw)
+      ? centerCandidateRaw
+      : centerFallback;
     if (centerCandidate) {
       currentCenter = centerCandidate;
     }
 
-    const stationName = normalizeCell(row[3]);
+    const stationName = normalizeCell(row[stationColumnIndex]);
     if (!stationName) {
       continue;
     }
 
-    for (let day = 1; day <= 30; day += 1) {
-      const rawDuty = normalizeCell(row[3 + day]);
+    for (const dayColumn of dayColumns) {
+      const rawDuty = normalizeCell(row[dayColumn.index]);
       if (!rawDuty) {
-        continue;
-      }
-
-      if (isStatusOnlyText(rawDuty)) {
-        filteredStatusRows += 1;
         continue;
       }
 
@@ -223,17 +238,44 @@ function parseLevelTwoWorkbookInternal(
       }
 
       const unitName = aliasMap[currentCenter] ?? currentCenter;
-      const dutyDate = `${month.year}-${pad2(month.month)}-${pad2(day)}`;
-      const parsed = splitPersonAndRole(rawDuty);
+      const dutyDate = `${month.year}-${pad2(month.month)}-${pad2(dayColumn.day)}`;
+      const dutyItems = splitDutyEntries(rawDuty);
+      for (const dutyItem of dutyItems) {
+        const parsed = parseDutyItem(dutyItem);
+        if (parsed.kind === "skip") {
+          filteredStatusRows += 1;
+          continue;
+        }
 
-      records.push({
-        unitName,
-        dutyDate,
-        departmentName: stationName,
-        personName: parsed.personName,
-        role: parsed.role,
-        phone: null,
-      });
+        if (parsed.kind === "shutdown") {
+          records.push({
+            unitName,
+            dutyDate,
+            departmentName: stationName,
+            personName: "",
+            role: null,
+            phone: null,
+            mobilePhone: null,
+            landlineType: null,
+            landlinePhone: null,
+            statusTag: "shutdown",
+          });
+          continue;
+        }
+
+        records.push({
+          unitName,
+          dutyDate,
+          departmentName: stationName,
+          personName: parsed.personName,
+          role: parsed.role,
+          phone: parsed.mobilePhone,
+          mobilePhone: parsed.mobilePhone,
+          landlineType: parsed.landlineType,
+          landlinePhone: parsed.landlinePhone,
+          statusTag: null,
+        });
+      }
     }
   }
 
@@ -345,6 +387,145 @@ function splitPersonAndRole(input: string): { personName: string; role: string |
 function isStatusOnlyText(input: string): boolean {
   const normalized = normalizeCell(input);
   return normalized === "无" || normalized === "关停";
+}
+
+function findColumnIndex(headerRow: (string | number | Date)[], expected: RegExp): number {
+  for (let i = 0; i < headerRow.length; i += 1) {
+    const value = normalizeCell(headerRow[i]);
+    if (expected.test(value)) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+function readDayColumns(
+  headerRow: (string | number | Date)[],
+): Array<{ day: number; index: number }> {
+  const columns: Array<{ day: number; index: number }> = [];
+  for (let i = 0; i < headerRow.length; i += 1) {
+    const value = normalizeCell(headerRow[i]);
+    const matched = value.match(/^(\d{1,2})日/);
+    if (!matched) {
+      continue;
+    }
+    const day = Number(matched[1]);
+    if (day >= 1 && day <= 31) {
+      columns.push({ day, index: i });
+    }
+  }
+  return columns.sort((a, b) => a.day - b.day);
+}
+
+function isLikelyCenterName(input: string): boolean {
+  const normalized = normalizeCell(input);
+  if (!normalized) {
+    return false;
+  }
+  if (/^\d+$/.test(normalized)) {
+    return false;
+  }
+  return true;
+}
+
+function splitDutyEntries(input: string): string[] {
+  const normalized = normalizeCell(input);
+  if (!normalized) {
+    return [];
+  }
+
+  return normalized
+    .split(/\r?\n/)
+    .flatMap((line) => line.split("、"))
+    .map((item) => normalizeCell(item))
+    .filter((item) => item.length > 0);
+}
+
+function parseDutyItem(input: string):
+  | { kind: "skip" }
+  | { kind: "shutdown" }
+  | {
+      kind: "normal";
+      personName: string;
+      role: string | null;
+      mobilePhone: string | null;
+      landlineType: "internal" | "landline" | "none" | null;
+      landlinePhone: string | null;
+    } {
+  const normalized = normalizeCell(input);
+  if (!normalized || isStatusOnlyText(normalized)) {
+    if (normalized === "关停") {
+      return { kind: "shutdown" };
+    }
+    return { kind: "skip" };
+  }
+
+  const parts = normalized.split("/").map((part) => normalizeCell(part));
+  if (parts.length === 1) {
+    const mobilePhone = readMobilePhone(parts[0]);
+    const personName = normalizeCell(parts[0].replace(mobilePhone ?? "", ""));
+    return {
+      kind: "normal",
+      personName,
+      role: null,
+      mobilePhone,
+      landlineType: null,
+      landlinePhone: null,
+    };
+  }
+
+  const personName = parts[0] ?? "";
+  const role = parts[1] ? normalizeCell(parts[1]) : null;
+  const mobilePhone = readMobilePhone(parts[2] ?? "");
+  const landlineRaw = normalizeCell(parts.slice(3).join("/"));
+  const landline = classifyLandline(landlineRaw);
+
+  return {
+    kind: "normal",
+    personName,
+    role,
+    mobilePhone,
+    landlineType: landline.type,
+    landlinePhone: landline.phone,
+  };
+}
+
+function readMobilePhone(input: string): string | null {
+  const matched = normalizeCell(input).match(/(1\d{10})/);
+  return matched ? matched[1] : null;
+}
+
+function classifyLandline(input: string): {
+  type: "internal" | "landline" | "none" | null;
+  phone: string | null;
+} {
+  const normalized = normalizeCell(input).replace(/\s+/g, "");
+  if (!normalized || normalized === "无固话") {
+    return {
+      type: "none",
+      phone: null,
+    };
+  }
+
+  const digitOnly = normalized.replace(/[^\d]/g, "");
+  if (digitOnly.length === 5 || digitOnly.length === 6) {
+    return {
+      type: "internal",
+      phone: digitOnly,
+    };
+  }
+
+  if (/^0\d{2,3}-?\d+$/.test(normalized)) {
+    return {
+      type: "landline",
+      phone: normalized,
+    };
+  }
+
+  return {
+    type: null,
+    phone: digitOnly || null,
+  };
 }
 
 function pad2(n: number): string {

@@ -72,28 +72,13 @@ export async function getUnitDetailData(input: {
 
 async function readHomeOverviewFromDatabase(date?: string): Promise<HomeOverviewData | null> {
   const requestedDate = normalizeDate(date);
-  let activeDate = requestedDate ?? getChinaTodayIsoDate();
-  let rows = await listDutyOverviewRowsByMonth(activeDate);
-
-  if (!requestedDate && rows.length === 0) {
-    const latest = await prisma.dutyOverview.findFirst({
-      orderBy: {
-        dutyDate: "desc",
-      },
-      select: {
-        dutyDate: true,
-      },
-    });
-    if (!latest) {
-      return null;
-    }
-    activeDate = formatDateOnly(latest.dutyDate);
-    rows = await listDutyOverviewRowsByMonth(activeDate);
-  }
-
-  if (rows.length === 0) {
-    return null;
-  }
+  const activeDate = requestedDate ?? getChinaTodayIsoDate();
+  const rows = await prisma.dutyOverview.findMany({
+    include: {
+      unit: true,
+    },
+    orderBy: [{ dutyDate: "asc" }, { unit: { sortOrder: "asc" } }, { unitId: "asc" }],
+  });
 
   const map = new Map<string, DutyOverviewItem[]>();
   for (const row of rows) {
@@ -150,21 +135,7 @@ async function readUnitDetailFromDatabase(
     return null;
   }
 
-  let targetDate = normalizeDate(date);
-  if (!targetDate) {
-    const latest = await prisma.dutyContact.findFirst({
-      where: {
-        unitId: unit.id,
-      },
-      orderBy: {
-        dutyDate: "desc",
-      },
-      select: {
-        dutyDate: true,
-      },
-    });
-    targetDate = latest ? formatDateOnly(latest.dutyDate) : null;
-  }
+  const targetDate = normalizeDate(date) ?? getChinaTodayIsoDate();
 
   const availableRows = await prisma.dutyContact.findMany({
     where: {
@@ -179,13 +150,6 @@ async function readUnitDetailFromDatabase(
     },
   });
   const availableDates = availableRows.map((row) => formatDateOnly(row.dutyDate));
-
-  if (!targetDate) {
-    return {
-      detail: null,
-      availableDates,
-    };
-  }
 
   const dayStart = new Date(`${targetDate}T00:00:00+08:00`);
   const dayEnd = new Date(dayStart);
@@ -218,6 +182,10 @@ async function readUnitDetailFromDatabase(
         departmentName: string;
         personName: string;
         phone?: string;
+        mobilePhone?: string;
+        landlineType?: "internal" | "landline" | "none";
+        landlinePhone?: string;
+        statusTag?: "shutdown";
       }[];
     }
   >();
@@ -231,6 +199,10 @@ async function readUnitDetailFromDatabase(
       departmentName: row.departmentName,
       personName: row.personName,
       phone: row.phone ?? "",
+      mobilePhone: row.mobilePhone ?? "",
+      landlineType: (row.landlineType as "internal" | "landline" | "none" | null) ?? undefined,
+      landlinePhone: row.landlinePhone ?? "",
+      statusTag: row.statusTag === "shutdown" ? "shutdown" : undefined,
     });
     groupMap.set(row.departmentName, group);
   }
@@ -274,28 +246,6 @@ function formatDateOnly(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
-}
-
-async function listDutyOverviewRowsByMonth(activeDate: string) {
-  const monthStart = new Date(`${activeDate}T00:00:00+08:00`);
-  const monthEnd = new Date(monthStart);
-  monthEnd.setMonth(monthEnd.getMonth() + 1, 1);
-  monthEnd.setHours(0, 0, 0, 0);
-  monthStart.setDate(1);
-  monthStart.setHours(0, 0, 0, 0);
-
-  return prisma.dutyOverview.findMany({
-    where: {
-      dutyDate: {
-        gte: monthStart,
-        lt: monthEnd,
-      },
-    },
-    include: {
-      unit: true,
-    },
-    orderBy: [{ dutyDate: "asc" }, { unit: { sortOrder: "asc" } }, { unitId: "asc" }],
-  });
 }
 
 function getChinaTodayIsoDate() {

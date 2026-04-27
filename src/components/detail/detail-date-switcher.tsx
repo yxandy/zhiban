@@ -77,6 +77,18 @@ function buildDetailHref(params: {
   return `/units/${params.unitSlug}?${query.toString()}`;
 }
 
+function buildHomeHref(params: {
+  date: string;
+  mode?: string;
+}) {
+  const query = new URLSearchParams();
+  query.set("date", params.date);
+  if (params.mode) {
+    query.set("mode", params.mode);
+  }
+  return `/?${query.toString()}`;
+}
+
 export function DetailDateSwitcher(props: DetailDateSwitcherProps) {
   const { unitSlug, unitName, mode, currentDate, availableDates } = props;
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
@@ -95,13 +107,17 @@ export function DetailDateSwitcher(props: DetailDateSwitcherProps) {
     unitName,
     mode,
   });
+  const homeHref = buildHomeHref({
+    date: currentDate,
+    mode,
+  });
 
   return (
     <div className="space-y-2">
       <div className="flex justify-end">
         <div className="flex items-center gap-2">
           <Link
-            href="/"
+            href={homeHref}
             className="shrink-0 rounded-full border border-[var(--line-soft)] bg-white px-4 py-2 text-sm font-medium text-[var(--foreground)] shadow-[0_8px_24px_rgba(18,31,41,0.08)] transition hover:-translate-y-0.5"
           >
             返回

@@ -135,6 +135,10 @@ export async function runDutyExcelImportCommit(
             departmentName: item.departmentName,
             personName: item.personName,
             phone: item.phone,
+            mobilePhone: item.mobilePhone,
+            landlineType: item.landlineType,
+            landlinePhone: item.landlinePhone,
+            statusTag: item.statusTag,
             sortOrder: index + 1,
             sourceBatchId: importBatch.id,
           };

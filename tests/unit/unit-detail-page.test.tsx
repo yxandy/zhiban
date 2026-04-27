@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
 
 import UnitDetailPage from "@/app/units/[unitSlug]/page";
 
@@ -19,10 +20,29 @@ describe("UnitDetailPage", () => {
     expect(screen.getByText("2026年4月10日")).toBeInTheDocument();
     expect(screen.getByText("运营调度中心")).toBeInTheDocument();
     expect(screen.getByText("范文东")).toBeInTheDocument();
-    expect(screen.getByText("18660196617")).toBeInTheDocument();
+    expect(screen.getByText("手机 18660196617")).toBeInTheDocument();
+    expect(screen.getByText("座机 0531-88990011")).toBeInTheDocument();
     expect(screen.getByText("杨洋")).toBeInTheDocument();
-    expect(screen.getAllByText("电话未上传").length).toBeGreaterThan(0);
-    expect(screen.getByRole("link", { name: "拨打 18660196617" })).toHaveAttribute("href", "tel:18660196617");
+    expect(screen.getByText("该单位无内线电话")).toBeInTheDocument();
+    expect(screen.getByText("关停")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "拨打手机 18660196617" })).toHaveAttribute("href", "tel:18660196617");
+    expect(screen.getByRole("link", { name: "拨打座机 0531-88990011" })).toHaveAttribute("href", "tel:0531-88990011");
+  });
+
+  it("内线电话点击时展示提示文案", async () => {
+    const user = userEvent.setup();
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+
+    render(
+      await UnitDetailPage({
+        params: Promise.resolve({ unitSlug: "luqiao-yunying" }),
+        searchParams: Promise.resolve({ date: "2026-04-10" }),
+      }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "内线电话 262751" }));
+    expect(alertSpy).toHaveBeenCalledWith("内线电话请用单位内部座机拨打");
+    alertSpy.mockRestore();
   });
 
   it("没有详情数据时展示空状态", async () => {

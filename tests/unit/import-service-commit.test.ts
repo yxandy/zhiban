@@ -60,6 +60,10 @@ describe("runDutyExcelImportCommit", () => {
           personName: "张三",
           role: "站长",
           phone: null,
+          mobilePhone: "13800000000",
+          landlineType: "internal",
+          landlinePhone: "230701",
+          statusTag: null,
         },
       ],
       filteredStatusRows: 0,
@@ -112,6 +116,17 @@ describe("runDutyExcelImportCommit", () => {
     expect(dutyContactDeleteManyMock).toHaveBeenCalledTimes(1);
     expect(dutyOverviewCreateManyMock).toHaveBeenCalledTimes(1);
     expect(dutyContactCreateManyMock).toHaveBeenCalledTimes(1);
+    expect(dutyContactCreateManyMock).toHaveBeenCalledWith({
+      data: expect.arrayContaining([
+        expect.objectContaining({
+          personName: "张三",
+          mobilePhone: "13800000000",
+          landlineType: "internal",
+          landlinePhone: "230701",
+          statusTag: null,
+        }),
+      ]),
+    });
     expect(importBatchUpdateMock).toHaveBeenCalled();
     expect(result.importBatchId).toBe(101);
     expect(result.overviewCount).toBe(1);

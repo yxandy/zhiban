@@ -105,4 +105,20 @@ describe("AdminImportsPage", () => {
     expect(await screen.findByText("导入成功（已写入数据库）。")).toBeInTheDocument();
     expect(screen.getByText("导入批次 ID：21")).toBeInTheDocument();
   });
+
+  it("接口返回500文本错误时应展示后端原始错误", async () => {
+    vi.stubGlobal("fetch", fetchMock);
+    fetchMock.mockResolvedValue(new Response("sourceMonth 格式错误：2026-5", { status: 500 }));
+
+    const user = userEvent.setup();
+    render(<AdminImportsPage />);
+
+    await user.type(screen.getByLabelText("上传密码"), "secret");
+    await user.type(screen.getByLabelText("月份（可选，格式 YYYY-MM）"), "2026-5");
+    await user.upload(screen.getByLabelText("一级值班表（首页摘要）"), new File(["a"], "一级.xlsx"));
+    await user.upload(screen.getByLabelText("二级值班表（详情联系人）"), new File(["b"], "二级.xlsx"));
+    await user.click(screen.getByRole("button", { name: "开始解析（dry-run）" }));
+
+    expect(await screen.findByText("sourceMonth 格式错误：2026-5")).toBeInTheDocument();
+  });
 });
